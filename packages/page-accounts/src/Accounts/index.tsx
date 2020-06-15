@@ -25,11 +25,33 @@ import Qr from './modals/Qr';
 import Account from './Account';
 import BannerClaims from './BannerClaims';
 import BannerExtension from './BannerExtension';
+import { web3Enable, web3FromSource } from '@polkadot/extension-dapp';
+import { injectMetamaskPolkadotSnapProvider } from '@nodefactory/metamask-polkadot-adapter/';
+import { Keyring } from '@polkadot/keyring';
+import settings from '@polkadot/ui-settings';
 
 interface Balances {
   accounts: Record<string, BN>;
   balanceTotal?: BN;
 }
+
+async function queryMetamask (): Promise<void> {
+  await web3Enable('polkadot-js/apps');
+  const metamaskExtension = await web3FromSource('metamask-polkadot-snap');
+
+  if (metamaskExtension) {
+    (await metamaskExtension.accounts.get()).forEach((account) => {
+      const accountKeyring = new Keyring();
+      const keyringPair = accountKeyring.addFromAddress(account.address, {
+        isInjected: true, source: 'metamask-polkadot-snap', tags: ['metamask']
+      });
+
+      keyring.saveAccount(keyringPair);
+    }
+    );
+  }
+}
+
 
 const STORE_FAVS = 'accounts:favorites';
 
@@ -160,6 +182,11 @@ function Overview ({ className = '', onStatusChange }: Props): React.ReactElemen
     </div>
   ), [filterOn, t]);
 
+  const connectMetamaskAccount = (): void => {
+    injectMetamaskPolkadotSnapProvider(settings.apiUrl.includes('kusama') ? 'kusama' : 'westend');
+    queryMetamask();
+  };
+
   return (
     <div className={className}>
       <BannerExtension />
@@ -226,6 +253,11 @@ function Overview ({ className = '', onStatusChange }: Props): React.ReactElemen
           isDisabled={!api.tx.multisig && api.tx.utility}
           label={t<string>('Multisig')}
           onClick={toggleMultisig}
+        />
+        <Button
+          icon='add'
+          label={t('Connect Metamask')}
+          onClick={connectMetamaskAccount}
         />
         <Button
           icon='add'
